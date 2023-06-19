@@ -8,10 +8,13 @@
 
   <h1>CSV converter</h1>
 
-  <h2>Last 10 visits</h2>
-  {% for time in times %}
-    <p>{{ time }}</p>
-  {% endfor %}
+  <h2>Convert delimiter ; to ,</h2>
+
+  <form action="/convert" method="POST" enctype="multipart/form-data">
+    Choose file (; delimiter): <input type="file" name="file" accept=".csv"><br>
+
+    <input type="submit" name="submit" value="Convert to comma-separated file">
+  </form>
 
 </body>
 </html>
