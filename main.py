@@ -70,8 +70,9 @@ def csvformat(input_file, output_file):
 
 def get_output_filename(input_filename):
     path = PurePath(input_filename)
-    filename = path.name
-    return path.stem + (path.suffix if path.suffix else '.csv')
+    new_stem = path.stem + "_comma"
+    extension = path.suffix if path.suffix else '.csv'
+    return new_stem + extension
 
 if __name__ == "__main__":
     # This is used when running locally only. When deploying to Google App
