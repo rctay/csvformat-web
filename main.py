@@ -1,12 +1,9 @@
 import datetime
 import io
-import os
-import sys
-import tempfile
 from csvkit import agate
 
 from pathlib import PurePath
-from flask import Flask, after_this_request, render_template, request, send_file
+from flask import Flask, render_template, request, send_file
 
 app = Flask(__name__)
 
@@ -33,30 +30,14 @@ def convert():
     if uploaded_file.filename == '':
         return redirect('/')
 
-    (input_filedescriptor, input_filename) = tempfile.mkstemp()
+    output_file = io.StringIO()
 
-    input_file = os.fdopen(input_filedescriptor, 'w+b')
-    uploaded_file.save(input_file)
-    input_file.close()
+    with io.TextIOWrapper(uploaded_file) as input_file:
+        csvformat(
+            input_file=input_file,
+            output_file=output_file)
 
-    (output_filedescriptor, output_filename) = tempfile.mkstemp()
-
-    with open(input_filename) as input_file:
-        with os.fdopen(output_filedescriptor, 'w+') as output_file:
-            csvformat(
-                input_file=input_file,
-                output_file=output_file)
-
-    @after_this_request
-    def cleanup_temp_files(response):
-        try:
-            os.remove(output_filename)
-            os.remove(input_filename)
-        except Exception as error:
-            app.logger.error("Error removing or closing downloaded file handle", error)
-        return response
-
-    return send_file(output_filename,
+    return send_file(io.BytesIO(output_file.getvalue().encode()),
         mimetype='text/csv',
         as_attachment=True, download_name=get_output_filename(uploaded_file.filename)
     )
