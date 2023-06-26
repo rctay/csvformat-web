@@ -11,7 +11,12 @@
   <h2>Convert delimiter ; to ,</h2>
 
   <form action="/convert" method="POST" enctype="multipart/form-data">
-    Choose file (; delimiter): <input type="file" name="file" accept=".csv"><br>
+    Choose file: <input type="file" name="file" accept=".csv,.tsv"><br>
+    Delimiter: <select name="delimiter">
+      <option value="auto" selected>Auto (guess)</option>
+      <option value="semicolon">; (semicolon)</option>
+      <option value="tab">TAB</option>
+    </select><br>
 
     <input type="submit" name="submit" value="Convert to comma-separated file">
   </form>

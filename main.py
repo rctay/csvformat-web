@@ -3,7 +3,7 @@ import io
 from csvkit import agate
 
 from pathlib import PurePath
-from flask import Flask, render_template, request, redirect, send_file
+from flask import Flask, render_template, request, redirect, Response, send_file
 
 app = Flask(__name__)
 
@@ -33,8 +33,14 @@ def convert():
     output_file = io.StringIO()
 
     with io.TextIOWrapper(uploaded_file) as input_file:
+        (input_kwargs, err) = infer_input(request.form['delimiter'], input_file)
+
+        if err:
+            return err
+
         csvformat(
             input_file=input_file,
+            input_kwargs=input_kwargs,
             output_file=output_file)
 
     return send_file(io.BytesIO(output_file.getvalue().encode()),
@@ -43,8 +49,31 @@ def convert():
     )
 
 
-def csvformat(input_file, output_file):
-    reader = agate.csv.reader(input_file, delimiter=';')
+def infer_input(input_mode, input_file):
+    if input_mode == 'auto':
+
+        header_candidate = input_file.readline()
+        input_file.seek(0)
+        try:
+            return {
+                'dialect': agate.csv.Sniffer().sniff(header_candidate)
+            }, None
+        except ValueError:
+            return None, Response('❗️Could not infer delimiter', 500)
+    elif input_mode == 'semicolon':
+        return {
+            'delimiter': ';'
+        }, None
+    elif input_mode == 'tab':
+        return {
+            'delimiter': '\t'
+        }, None
+    else:
+        return None, Response('⚠️Invalid delimiter provided', 400)
+
+
+def csvformat(input_file, input_kwargs, output_file):
+    reader = agate.csv.reader(input_file, **input_kwargs)
     writer = agate.csv.writer(output_file, delimiter=',')
     writer.writerows(reader)
 
