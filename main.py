@@ -81,7 +81,7 @@ def csvformat(input_file, input_kwargs, output_file):
 def get_output_filename(input_filename):
     path = PurePath(input_filename)
     new_stem = path.stem + "_comma"
-    extension = path.suffix if path.suffix else '.csv'
+    extension = '.csv'
     return new_stem + extension
 
 if __name__ == "__main__":
