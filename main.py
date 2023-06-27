@@ -1,6 +1,7 @@
 import datetime
 import io
 from csvkit import agate
+import sys
 
 from pathlib import PurePath
 from flask import Flask, render_template, request, redirect, Response, send_file
@@ -43,6 +44,12 @@ def convert():
             input_kwargs=input_kwargs,
             output_file=output_file)
 
+    def get_output_filename(input_filename):
+        path = PurePath(input_filename)
+        new_stem = path.stem + "_comma"
+        extension = '.csv'
+        return new_stem + extension
+
     return send_file(io.BytesIO(output_file.getvalue().encode()),
         mimetype='text/csv',
         as_attachment=True, download_name=get_output_filename(uploaded_file.filename)
@@ -78,11 +85,70 @@ def csvformat(input_file, input_kwargs, output_file):
     writer.writerows(reader)
 
 
-def get_output_filename(input_filename):
-    path = PurePath(input_filename)
-    new_stem = path.stem + "_comma"
-    extension = '.csv'
-    return new_stem + extension
+
+@app.route("/import_google", methods=['POST'])
+def import_google():
+    # importing locally, due to local python lacking lzma
+    from csvkit.utilities.csvsql import CSVSQL
+
+    if 'file' not in request.files:
+        return redirect('/')
+
+    uploaded_file = request.files['file']
+
+    if uploaded_file.filename == '':
+        return redirect('/')
+
+    output_file = io.StringIO()
+
+    with io.TextIOWrapper(uploaded_file) as input_file:
+        try:
+            prev_stdin = sys.stdin
+            sys.stdin = input_file
+
+            # stub out signal used by csvkit.cli.CSVKitUtility, which doesn't work on app engine
+            prev_signal = sys.modules['signal']
+            del sys.modules['signal']
+            sys.modules['signal'] = __import__('fake_signal')
+
+            csvsql = CSVSQL(
+                args=[
+                    '--delimiter', "\t",
+                    '--query',
+                        'select id as "SKU ID", '
+                        '"Title" as "Product Name", '
+                        '"Google product category" as "Category Name", '
+                        'Brand, '
+                        'gtin as GTIN, '
+                        'size as Size, '
+                        'substr(Price, 0, instr(Price, " ")) as Price, '
+                        'substr(Price, instr(Price, " ")+1) as Currency, '
+                        '"No" as "To Delete?" '
+                        'from stdin',
+                    ],
+                output_file=output_file)
+            csvsql.run()
+        except Exception as e:
+            print("received exception", e, file=sys.stderr)
+            raise
+        finally:
+            sys.stdin = prev_stdin
+
+            del sys.modules['signal']
+            sys.modules['signal'] = prev_signal
+
+
+    def get_output_filename(input_filename):
+        path = PurePath(input_filename)
+        new_stem = path.stem + "_ttd"
+        extension = '.csv'
+        return new_stem + extension
+
+
+    return send_file(io.BytesIO(output_file.getvalue().encode()),
+        mimetype='text/csv',
+        as_attachment=True, download_name=get_output_filename(uploaded_file.filename)
+    )
 
 if __name__ == "__main__":
     # This is used when running locally only. When deploying to Google App
